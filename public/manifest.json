@@ -1,0 +1,35 @@
+{
+  "name": "Internet Speed Test",
+  "short_name": "Speed Test",
+  "description": "Professional internet speed testing application",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#06b6d4",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Start Speed Test",
+      "short_name": "Test",
+      "description": "Start a new speed test",
+      "url": "/",
+      "icons": []
+    }
+  ]
+}
