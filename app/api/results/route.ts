@@ -87,11 +87,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Get client IP (considering proxies)
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
-               request.headers.get('x-real-ip') || 
-               'unknown'
-    
+    // Use the same IP variable from rate limiting above
     const ipHash = hashIP(ip)
     
     const result = saveTestResult(ipHash, body)
