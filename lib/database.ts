@@ -2,11 +2,24 @@ import Database from 'better-sqlite3'
 import { createHash } from 'crypto'
 import path from 'path'
 
-const dbPath = path.join(process.cwd(), 'speedtest.db')
-const db = new Database(dbPath)
+// Singleton database connection
+let db: Database.Database | null = null
 
-// Initialize database schema
-export function initDatabase() {
+function getDatabase() {
+  if (!db) {
+    const dbPath = path.join(process.cwd(), 'speedtest.db')
+    db = new Database(dbPath)
+    // Enable WAL mode for better concurrent access
+    db.pragma('journal_mode = WAL')
+    // Initialize schema on first connection
+    initDatabaseSchema()
+  }
+  return db
+}
+
+// Initialize database schema (called internally)
+function initDatabaseSchema() {
+  const database = getDatabase()
   const schema = `
     CREATE TABLE IF NOT EXISTS test_results (
       id TEXT PRIMARY KEY,
@@ -27,7 +40,7 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_ip_hash ON test_results(ip_hash);
   `
 
-  db.exec(schema)
+  database.exec(schema)
 }
 
 // Hash IP address for privacy
@@ -48,6 +61,7 @@ export interface TestResult {
 }
 
 export function saveTestResult(ipHash: string, result: TestResult) {
+  const database = getDatabase()
   const id = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   const timestamp = Date.now()
   
@@ -56,7 +70,7 @@ export function saveTestResult(ipHash: string, result: TestResult) {
     .substring(0, 500) // Limit length
     .replace(/[<>\"']/g, '') // Remove potential XSS characters
 
-  const stmt = db.prepare(`
+  const stmt = database.prepare(`
     INSERT INTO test_results 
     (id, timestamp, ip_hash, server_id, ping, jitter, download_mbps, upload_mbps, packet_loss, user_agent, connection_type)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -81,7 +95,8 @@ export function saveTestResult(ipHash: string, result: TestResult) {
 
 // Get recent test results
 export function getRecentResults(limit: number = 10) {
-  const stmt = db.prepare(`
+  const database = getDatabase()
+  const stmt = database.prepare(`
     SELECT id, timestamp, ping, jitter, download_mbps, upload_mbps, server_id
     FROM test_results
     ORDER BY timestamp DESC
@@ -93,7 +108,8 @@ export function getRecentResults(limit: number = 10) {
 
 // Get test results by IP hash
 export function getResultsByIP(ipHash: string, limit: number = 10) {
-  const stmt = db.prepare(`
+  const database = getDatabase()
+  const stmt = database.prepare(`
     SELECT id, timestamp, ping, jitter, download_mbps, upload_mbps, server_id
     FROM test_results
     WHERE ip_hash = ?
@@ -104,7 +120,5 @@ export function getResultsByIP(ipHash: string, limit: number = 10) {
   return stmt.all(ipHash, limit)
 }
 
-// Initialize database on module load
-initDatabase()
-
-export default db
+// Export database getter for cleanup if needed
+export { getDatabase }

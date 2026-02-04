@@ -21,15 +21,21 @@ function checkRateLimit(ip: string, maxRequests: number = 5, windowMs: number = 
   return true
 }
 
-// Clean up old entries periodically
-setInterval(() => {
-  const now = Date.now()
-  for (const [ip, record] of rateLimitMap.entries()) {
-    if (now > record.resetTime) {
-      rateLimitMap.delete(ip)
+// Clean up old entries periodically (run only once per module load)
+let cleanupInterval: NodeJS.Timeout | null = null
+if (!cleanupInterval) {
+  cleanupInterval = setInterval(() => {
+    const now = Date.now()
+    for (const [ip, record] of rateLimitMap.entries()) {
+      if (now > record.resetTime) {
+        rateLimitMap.delete(ip)
+      }
     }
-  }
-}, 300000) // Clean every 5 minutes
+  }, 300000) // Clean every 5 minutes
+  
+  // Prevent interval from keeping process alive
+  cleanupInterval.unref()
+}
 
 export async function POST(request: NextRequest) {
   try {

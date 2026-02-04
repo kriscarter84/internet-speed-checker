@@ -1,5 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Rate limiting for downloads
+const downloadRateLimitMap = new Map<string, { count: number; resetTime: number }>()
+
+function checkDownloadRateLimit(ip: string, maxRequests: number = 20, windowMs: number = 60000): boolean {
+  const now = Date.now()
+  const record = downloadRateLimitMap.get(ip)
+  
+  if (!record || now > record.resetTime) {
+    downloadRateLimitMap.set(ip, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+  
+  if (record.count >= maxRequests) {
+    return false
+  }
+  
+  record.count++
+  return true
+}
+
 // Pre-generate a large buffer of random data to reuse (much faster than generating on each request)
 const CACHE_SIZE = 50 * 1024 * 1024 // 50MB
 const cachedBuffer = Buffer.allocUnsafe(CACHE_SIZE)
@@ -13,6 +33,19 @@ for (let i = 0; i < CACHE_SIZE; i += 1024) {
 }
 
 export async function GET(request: NextRequest) {
+  // Get client IP for rate limiting
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+             request.headers.get('x-real-ip') || 
+             'unknown'
+  
+  // Check rate limit (20 requests per minute)
+  if (!checkDownloadRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    )
+  }
+  
   const searchParams = request.nextUrl.searchParams
   const sizeParam = searchParams.get('size') || '1048576'
   const nonce = searchParams.get('nonce') || Date.now().toString()
