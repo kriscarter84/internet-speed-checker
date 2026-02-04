@@ -538,21 +538,21 @@ Tested at ${new Date().toLocaleString()}`
           {(state.phase === 'selecting' || state.phase === 'ping' || state.phase === 'download' || state.phase === 'upload') && (
             <div className="space-y-8 sm:space-y-12 animate-fade-in">
               {/* Status Label and Progress */}
-              <div className="flex items-center justify-between max-w-[500px] mx-auto px-4">
-                <div className="text-base sm:text-lg text-gray-400 uppercase tracking-wider">
+              <div className="flex items-center justify-between max-w-[500px] mx-auto px-4 gap-4">
+                <div className="text-sm sm:text-base md:text-lg text-gray-400 uppercase tracking-wider flex-shrink-0">
                   {state.phase === 'selecting' && 'Selecting Server...'}
                   {state.phase === 'ping' && 'Testing Latency...'}
-                  {state.phase === 'download' && 'Testing Download Speed'}
-                  {state.phase === 'upload' && 'Testing Upload Speed'}
+                  {state.phase === 'download' && 'Testing Download'}
+                  {state.phase === 'upload' && 'Testing Upload'}
                 </div>
-                <div className="text-2xl font-bold text-cyan-400">
+                <div className="text-xl sm:text-2xl font-bold text-cyan-400 flex-shrink-0">
                   {state.progress.toFixed(0)}%
                 </div>
               </div>
 
               {/* Speedometer Gauge */}
-              <div className="relative w-[500px] h-[300px] mx-auto">
-                <svg className="w-full h-full" viewBox="0 0 500 300">
+              <div className="relative w-full max-w-[500px] mx-auto px-4" style={{ aspectRatio: '5/3' }}>
+                <svg className="w-full h-full" viewBox="0 0 500 300" preserveAspectRatio="xMidYMid meet">
                   {/* Background arc */}
                   <path
                     d="M 50 250 A 200 200 0 0 1 450 250"
@@ -679,35 +679,35 @@ Tested at ${new Date().toLocaleString()}`
                 
                 {/* Speed display */}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-center">
-                  <div className="bg-slate-900/80 backdrop-blur-sm px-6 py-3 rounded-2xl border border-slate-700/50">
-                    <div className="text-6xl font-black text-white tracking-tight">
+                  <div className="bg-slate-900/80 backdrop-blur-sm px-4 sm:px-6 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-slate-700/50">
+                    <div className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight">
                       {(state.phase === 'upload' ? state.uploadSpeed : state.downloadSpeed).toFixed(1)}
                     </div>
-                    <div className="text-xl text-gray-400 mt-1">Mbps</div>
+                    <div className="text-base sm:text-lg md:text-xl text-gray-400 mt-1">Mbps</div>
                   </div>
                 </div>
               </div>
 
               {/* Real-time Progress Info */}
               {state.progressInfo && (state.phase === 'download' || state.phase === 'upload') && (
-                <div className="flex items-center justify-center gap-8 text-sm text-gray-400">
+                <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 md:gap-8 text-xs sm:text-sm text-gray-400 px-4">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <span>{state.progressInfo.connections} connections</span>
+                    <span className="whitespace-nowrap">{state.progressInfo.connections} connections</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                     </svg>
-                    <span>{(state.progressInfo.bytesTransferred / 1024 / 1024).toFixed(1)} MB transferred</span>
+                    <span className="whitespace-nowrap">{(state.progressInfo.bytesTransferred / 1024 / 1024).toFixed(1)} MB transferred</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>{state.progressInfo.timeRemaining.toFixed(1)}s remaining</span>
+                    <span className="whitespace-nowrap">{state.progressInfo.timeRemaining.toFixed(1)}s remaining</span>
                   </div>
                 </div>
               )}
