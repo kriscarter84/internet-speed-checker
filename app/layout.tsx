@@ -26,7 +26,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+      </head>
+      <body>
+        <noscript>
+          <div style={{ padding: '20px', textAlign: 'center', color: 'white', backgroundColor: '#1e293b' }}>
+            <h1>JavaScript Required</h1>
+            <p>This application requires JavaScript to be enabled.</p>
+          </div>
+        </noscript>
+        {children}
+      </body>
     </html>
   )
 }
