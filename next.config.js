@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Exclude backups directory from build
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  webpack: (config, { isServer }) => {
+    // Ignore backups directory
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: ['**/node_modules', '**/backups/**', '**/.git/**']
+    }
+    return config
+  },
   async headers() {
     return [
       {
