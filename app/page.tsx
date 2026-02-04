@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Server,
   measureLatency,
@@ -88,9 +88,14 @@ export default function SpeedTest() {
       // Continue anyway - these are non-critical
     }
     
-    // Add keyboard shortcuts (with safety check)
+    // Add keyboard shortcuts (with safety check) - only on desktop
     const handleKeyPress = (e: KeyboardEvent) => {
       try {
+        // Skip on mobile devices
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+          return
+        }
+        
         // Space or Enter to start test (only when idle)
         if ((e.code === 'Space' || e.code === 'Enter') && state.phase === 'idle') {
           e.preventDefault()
@@ -116,7 +121,8 @@ export default function SpeedTest() {
       }
     }
     
-    if (typeof window !== 'undefined') {
+    // Only add keyboard listeners on desktop
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
       window.addEventListener('keydown', handleKeyPress)
       return () => window.removeEventListener('keydown', handleKeyPress)
     }
@@ -621,10 +627,10 @@ Tested at ${new Date().toLocaleString()}`
             )}
           </div>
           
-          {/* Keyboard shortcut hint */}
+          {/* Keyboard shortcut hint - desktop only */}
           <button
             onClick={() => setShowKeyboardHelp(true)}
-            className="mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 mx-auto"
+            className="mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors hidden md:flex items-center gap-1 mx-auto"
             aria-label="Show keyboard shortcuts"
           >
             <span>⌨️</span>
