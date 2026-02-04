@@ -65,32 +65,80 @@ export async function GET(request: NextRequest) {
           throw new Error('Invalid IP format')
         }
         
+        console.log('[IP Info] Fetching ISP info for IP:', clientIp)
+        
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 3000)
+        const timeout = setTimeout(() => controller.abort(), 5000) // Increased to 5 seconds
         
         const response = await fetch(`http://ip-api.com/json/${clientIp}?fields=status,country,countryCode,region,regionName,city,isp,org,as,query`, {
           signal: controller.signal,
+          headers: {
+            'User-Agent': 'SpeedTestApp/1.0'
+          }
         })
         clearTimeout(timeout)
         
+        console.log('[IP Info] API response status:', response.status)
+        
         if (response.ok) {
           const data = await response.json()
+          console.log('[IP Info] API response data:', data)
+          
           if (data.status === 'success') {
             ispInfo = {
-              ip: data.query,
-              isp: data.isp,
-              org: data.org,
-              as: data.as,
-              city: data.city,
-              region: data.regionName,
-              country: data.country,
-              countryCode: data.countryCode,
+              ip: data.query || clientIp,
+              isp: data.isp || 'Unknown ISP',
+              org: data.org || data.isp || 'Unknown',
+              as: data.as || null,
+              city: data.city || null,
+              region: data.regionName || null,
+              country: data.country || null,
+              countryCode: data.countryCode || null,
             }
+          } else {
+            console.error('[IP Info] API returned error status:', data)
           }
         }
       } catch (error) {
-        console.error('[IP Info] Failed to fetch ISP info:', error instanceof Error ? error.message : 'Unknown error')
+        console.error('[IP Info] Failed to fetch ISP info from ip-api.com:', error instanceof Error ? error.message : 'Unknown error')
+        
+        // Try alternative API: ipapi.co as fallback
+        try {
+          console.log('[IP Info] Trying fallback API: ipapi.co')
+          const controller2 = new AbortController()
+          const timeout2 = setTimeout(() => controller2.abort(), 5000)
+          
+          const fallbackResponse = await fetch(`https://ipapi.co/${clientIp}/json/`, {
+            signal: controller2.signal,
+            headers: {
+              'User-Agent': 'SpeedTestApp/1.0'
+            }
+          })
+          clearTimeout(timeout2)
+          
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json()
+            console.log('[IP Info] Fallback API response:', fallbackData)
+            
+            if (!fallbackData.error) {
+              ispInfo = {
+                ip: fallbackData.ip || clientIp,
+                isp: fallbackData.org || 'Unknown ISP',
+                org: fallbackData.org || 'Unknown',
+                as: fallbackData.asn || null,
+                city: fallbackData.city || null,
+                region: fallbackData.region || null,
+                country: fallbackData.country_name || null,
+                countryCode: fallbackData.country_code || null,
+              }
+            }
+          }
+        } catch (fallbackError) {
+          console.error('[IP Info] Fallback API also failed:', fallbackError instanceof Error ? fallbackError.message : 'Unknown error')
+        }
       }
+    } else {
+      console.log('[IP Info] Skipping ISP lookup - IP is:', clientIp)
     }
     
     // If ISP lookup failed, return basic info with the IP we found
