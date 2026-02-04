@@ -127,7 +127,11 @@ export async function GET(request: NextRequest) {
     
     const results = getRecentResults(limit)
     
-    return NextResponse.json({ results })
+    return NextResponse.json({ results }, {
+      headers: {
+        'Cache-Control': 'private, max-age=10',
+      }
+    })
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch results' },

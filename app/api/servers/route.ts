@@ -246,6 +246,10 @@ export async function GET(request: NextRequest) {
         continent: userContinent,
         ip: clientIp,
       },
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      }
     })
   } catch (error) {
     console.error('Error generating server list:', error)

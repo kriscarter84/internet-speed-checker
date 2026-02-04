@@ -68,6 +68,9 @@ export default function SpeedTest() {
   const [history, setHistory] = useState<HistoricalTest[]>([])
   const [capabilities, setCapabilities] = useState<ConnectionCapabilities | null>(null)
   const [ipInfo, setIpInfo] = useState<IPInfo | null>(null)
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [isLoadingIPInfo, setIsLoadingIPInfo] = useState(true)
 
   // Detect network type on mount
   useEffect(() => {
@@ -92,13 +95,24 @@ export default function SpeedTest() {
         e.preventDefault()
         cancelTest()
       }
+      // ? to show keyboard shortcuts
+      if (e.key === '?' && state.phase === 'idle') {
+        e.preventDefault()
+        setShowKeyboardHelp(true)
+      }
+      // Escape to close help modal
+      if (e.key === 'Escape' && showKeyboardHelp) {
+        e.preventDefault()
+        setShowKeyboardHelp(false)
+      }
     }
     
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [state.phase])
+  }, [state.phase, showKeyboardHelp])
 
   const fetchIPInfo = async () => {
+    setIsLoadingIPInfo(true)
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
@@ -120,10 +134,13 @@ export default function SpeedTest() {
     } catch (error) {
       console.error('[Client] Failed to fetch IP info:', error instanceof Error ? error.message : 'Unknown error')
       // Don't set error state, IP info is not critical
+    } finally {
+      setIsLoadingIPInfo(false)
     }
   }
 
   const fetchHistory = async () => {
+    setIsLoadingHistory(true)
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000)
@@ -146,6 +163,8 @@ export default function SpeedTest() {
       console.error('[Client] Failed to fetch history:', error instanceof Error ? error.message : 'Unknown error')
       // Set empty array on error so UI doesn't break
       setHistory([])
+    } finally {
+      setIsLoadingHistory(false)
     }
   }
 
@@ -557,17 +576,36 @@ Tested at ${new Date().toLocaleString()}`
             ) : (
               <>
                 {/* Loading skeleton */}
-                <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800/50 backdrop-blur-sm rounded-full border border-slate-700 animate-pulse">
-                  <span className="text-lg">🌐</span>
-                  <span className="text-gray-500 w-24">Loading...</span>
-                </div>
-                <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800/50 backdrop-blur-sm rounded-full border border-slate-700 animate-pulse">
-                  <span className="text-lg">📡</span>
-                  <span className="text-gray-500 w-32">Loading...</span>
-                </div>
+                {isLoadingIPInfo ? (
+                  <>
+                    <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800/50 backdrop-blur-sm rounded-full border border-slate-700">
+                      <span className="text-lg">🌐</span>
+                      <div className="skeleton w-24 h-4 rounded"></div>
+                    </div>
+                    <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800/50 backdrop-blur-sm rounded-full border border-slate-700">
+                      <span className="text-lg">📡</span>
+                      <div className="skeleton w-32 h-4 rounded"></div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800/50 backdrop-blur-sm rounded-full border border-slate-700">
+                    <span className="text-lg">⚠️</span>
+                    <span className="text-gray-500 text-xs">Unable to load IP info</span>
+                  </div>
+                )}
               </>
             )}
           </div>
+          
+          {/* Keyboard shortcut hint */}
+          <button
+            onClick={() => setShowKeyboardHelp(true)}
+            className="mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 mx-auto"
+            aria-label="Show keyboard shortcuts"
+          >
+            <span>⌨️</span>
+            <span>Keyboard shortcuts</span>
+          </button>
           
           {/* Network Info */}
           {state.networkInfo && (
@@ -1366,6 +1404,70 @@ Tested at ${new Date().toLocaleString()}`
           </p>
         </footer>
       </div>
+
+      {/* Keyboard Shortcuts Modal */}
+      {showKeyboardHelp && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowKeyboardHelp(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="keyboard-shortcuts-title"
+        >
+          <div 
+            className="bg-slate-800 rounded-2xl p-6 sm:p-8 max-w-md w-full border border-slate-700 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 id="keyboard-shortcuts-title" className="text-2xl font-bold text-white flex items-center gap-2">
+                <span>⌨️</span>
+                <span>Keyboard Shortcuts</span>
+              </h2>
+              <button
+                onClick={() => setShowKeyboardHelp(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Close keyboard shortcuts"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Start test</span>
+                <div className="flex gap-2">
+                  <kbd className="px-3 py-1.5 bg-slate-700 rounded text-cyan-400 font-mono text-sm border border-slate-600">Space</kbd>
+                  <span className="text-gray-500">or</span>
+                  <kbd className="px-3 py-1.5 bg-slate-700 rounded text-cyan-400 font-mono text-sm border border-slate-600">Enter</kbd>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Cancel test</span>
+                <kbd className="px-3 py-1.5 bg-slate-700 rounded text-cyan-400 font-mono text-sm border border-slate-600">Esc</kbd>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Show shortcuts</span>
+                <kbd className="px-3 py-1.5 bg-slate-700 rounded text-cyan-400 font-mono text-sm border border-slate-600">?</kbd>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Close modal</span>
+                <kbd className="px-3 py-1.5 bg-slate-700 rounded text-cyan-400 font-mono text-sm border border-slate-600">Esc</kbd>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-slate-700">
+              <p className="text-xs text-gray-400 text-center">
+                Press <kbd className="px-2 py-0.5 bg-slate-700 rounded text-cyan-400 font-mono">?</kbd> anytime to see these shortcuts
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

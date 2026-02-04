@@ -107,7 +107,11 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    return NextResponse.json(ispInfo)
+    return NextResponse.json(ispInfo, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
+      }
+    })
   } catch (error) {
     console.error('[IP Info] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json(
