@@ -51,88 +51,40 @@ export async function GET(request: NextRequest) {
     
     // Build dynamic server list based on user location
     const servers = [
-      // Always include local server for fastest testing
+      // Cloudflare (global CDN - always include)
       {
-        id: 'local-server',
-        name: 'Local Server',
-        location: 'Your Location',
-        distance: 0,
+        id: 'cloudflare-global',
+        name: 'Cloudflare Global',
+        location: 'Global CDN',
+        distance: 1,
         endpoints: {
-          ping: '/api/ping',
-          download: '/api/download',
-          upload: '/api/upload',
+          ping: 'https://speed.cloudflare.com/__down?bytes=1',
+          download: 'https://speed.cloudflare.com/__down',
+          upload: 'https://speed.cloudflare.com/__up',
         },
       },
     ]
-    
+
     // Add region-specific servers based on continent
-    if (userContinent === 'OC' || userCountry === 'Australia') {
-      // Oceania / Australia
+    if (userContinent === 'NA') {
+      // North America - prioritize US servers
       servers.push(
         {
-          id: 'sydney-1',
-          name: 'Sydney',
-          location: 'Sydney, Australia',
-          distance: 1,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        },
-        {
-          id: 'melbourne-1',
-          name: 'Melbourne',
-          location: 'Melbourne, Australia',
+          id: 'fastly-us',
+          name: 'Fastly US',
+          location: 'United States',
           distance: 2,
           endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
+            ping: 'https://www.fastly.com/favicon.ico',
+            download: 'https://www.fastly.com',
             upload: '/api/upload',
           },
         },
         {
-          id: 'singapore-1',
-          name: 'Singapore',
-          location: 'Singapore',
-          distance: 3,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        }
-      )
-    } else if (userContinent === 'AS') {
-      // Asia
-      servers.push(
-        {
-          id: 'singapore-1',
-          name: 'Singapore',
-          location: 'Singapore',
-          distance: 1,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        },
-        {
-          id: 'tokyo-1',
-          name: 'Tokyo',
-          location: 'Tokyo, Japan',
-          distance: 2,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        },
-        {
-          id: 'mumbai-1',
-          name: 'Mumbai',
-          location: 'Mumbai, India',
-          distance: 3,
+          id: 'local-server',
+          name: 'Local Server',
+          location: 'Your Location',
+          distance: 0,
           endpoints: {
             ping: '/api/ping',
             download: '/api/download',
@@ -141,35 +93,24 @@ export async function GET(request: NextRequest) {
         }
       )
     } else if (userContinent === 'EU') {
-      // Europe
+      // Europe - prioritize EU servers
       servers.push(
         {
-          id: 'london-1',
-          name: 'London',
-          location: 'London, UK',
-          distance: 1,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        },
-        {
-          id: 'frankfurt-1',
-          name: 'Frankfurt',
-          location: 'Frankfurt, Germany',
+          id: 'fastly-eu',
+          name: 'Fastly Europe',
+          location: 'Europe',
           distance: 2,
           endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
+            ping: 'https://www.fastly.com/favicon.ico',
+            download: 'https://www.fastly.com',
             upload: '/api/upload',
           },
         },
         {
-          id: 'paris-1',
-          name: 'Paris',
-          location: 'Paris, France',
-          distance: 3,
+          id: 'local-server',
+          name: 'Local Server',
+          location: 'Your Location',
+          distance: 0,
           endpoints: {
             ping: '/api/ping',
             download: '/api/download',
@@ -177,36 +118,103 @@ export async function GET(request: NextRequest) {
           },
         }
       )
-    } else if (userContinent === 'NA') {
-      // North America
+    } else if (userContinent === 'AS') {
+      // Asia - prioritize Asia-Pacific servers
       servers.push(
         {
-          id: 'new-york-1',
-          name: 'New York',
-          location: 'New York, USA',
-          distance: 1,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        },
-        {
-          id: 'san-francisco-1',
-          name: 'San Francisco',
-          location: 'San Francisco, USA',
+          id: 'fastly-asia',
+          name: 'Fastly Asia',
+          location: 'Asia Pacific',
           distance: 2,
           endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
+            ping: 'https://www.fastly.com/favicon.ico',
+            download: 'https://www.fastly.com',
             upload: '/api/upload',
           },
         },
         {
-          id: 'toronto-1',
-          name: 'Toronto',
-          location: 'Toronto, Canada',
-          distance: 3,
+          id: 'local-server',
+          name: 'Local Server',
+          location: 'Your Location',
+          distance: 0,
+          endpoints: {
+            ping: '/api/ping',
+            download: '/api/download',
+            upload: '/api/upload',
+          },
+        }
+      )
+    } else if (userContinent === 'OC') {
+      // Oceania - prioritize Australia/NZ servers
+      servers.push(
+        {
+          id: 'cloudflare-oceania',
+          name: 'Cloudflare Oceania',
+          location: 'Australia/NZ',
+          distance: 2,
+          endpoints: {
+            ping: 'https://speed.cloudflare.com/__down?bytes=1',
+            download: 'https://speed.cloudflare.com/__down',
+            upload: 'https://speed.cloudflare.com/__up',
+          },
+        },
+        {
+          id: 'local-server',
+          name: 'Local Server',
+          location: 'Your Location',
+          distance: 0,
+          endpoints: {
+            ping: '/api/ping',
+            download: '/api/download',
+            upload: '/api/upload',
+          },
+        }
+      )
+    } else if (userContinent === 'SA') {
+      // South America
+      servers.push(
+        {
+          id: 'cloudflare-sa',
+          name: 'Cloudflare Americas',
+          location: 'South America',
+          distance: 2,
+          endpoints: {
+            ping: 'https://speed.cloudflare.com/__down?bytes=1',
+            download: 'https://speed.cloudflare.com/__down',
+            upload: 'https://speed.cloudflare.com/__up',
+          },
+        },
+        {
+          id: 'local-server',
+          name: 'Local Server',
+          location: 'Your Location',
+          distance: 0,
+          endpoints: {
+            ping: '/api/ping',
+            download: '/api/download',
+            upload: '/api/upload',
+          },
+        }
+      )
+    } else if (userContinent === 'AF') {
+      // Africa
+      servers.push(
+        {
+          id: 'cloudflare-africa',
+          name: 'Cloudflare Africa',
+          location: 'Africa',
+          distance: 2,
+          endpoints: {
+            ping: 'https://speed.cloudflare.com/__down?bytes=1',
+            download: 'https://speed.cloudflare.com/__down',
+            upload: 'https://speed.cloudflare.com/__up',
+          },
+        },
+        {
+          id: 'local-server',
+          name: 'Local Server',
+          location: 'Your Location',
+          distance: 0,
           endpoints: {
             ping: '/api/ping',
             download: '/api/download',
@@ -215,35 +223,13 @@ export async function GET(request: NextRequest) {
         }
       )
     } else {
-      // Default global servers
+      // Unknown location - provide global options
       servers.push(
         {
-          id: 'us-east-1',
-          name: 'US East',
-          location: 'Virginia, USA',
-          distance: 2,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        },
-        {
-          id: 'europe-1',
-          name: 'Europe',
-          location: 'London, UK',
-          distance: 3,
-          endpoints: {
-            ping: '/api/ping',
-            download: '/api/download',
-            upload: '/api/upload',
-          },
-        },
-        {
-          id: 'asia-1',
-          name: 'Asia',
-          location: 'Singapore',
-          distance: 4,
+          id: 'local-server',
+          name: 'Local Server',
+          location: 'Your Location',
+          distance: 0,
           endpoints: {
             ping: '/api/ping',
             download: '/api/download',
@@ -252,7 +238,7 @@ export async function GET(request: NextRequest) {
         }
       )
     }
-    
+
     return NextResponse.json({
       servers,
       userLocation: {

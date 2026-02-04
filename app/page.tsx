@@ -147,17 +147,22 @@ export default function SpeedTest() {
       // Phase 3: Download test (with pre-test)
       setState(prev => ({ ...prev, phase: 'download', progress: 35 }))
       
-      // Pre-test with single connection
+      // Pre-test with multiple connections for better accuracy on high-speed connections
       const preTest = await measureDownloadSpeed(
         bestServer.endpoints.download,
-        { connections: 1, chunkSize: 256 * 1024, duration: 2 },
+        { connections: 4, chunkSize: 2 * 1024 * 1024, duration: 3 },
         undefined,
         abortControllerRef.current.signal
       )
 
+      console.log('Pre-test result:', preTest.mbps, 'Mbps')
+
       // Main download test with optimal connections
-      const connections = getOptimalConnections(preTest.mbps)
+      // Use at least 8 connections for any reasonable speed
+      const connections = Math.max(8, getOptimalConnections(preTest.mbps))
       const chunkSize = getChunkSize(preTest.mbps, 'download')
+      
+      console.log('Using', connections, 'connections with', (chunkSize / 1024 / 1024).toFixed(1), 'MB chunks')
       
       const downloadResult = await measureDownloadSpeed(
         bestServer.endpoints.download,

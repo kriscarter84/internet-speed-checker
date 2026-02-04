@@ -127,7 +127,10 @@ export async function measureDownloadSpeed(
       if (elapsed >= duration * 1000) break
 
       const nonce = Date.now() + Math.random()
-      const url = `${downloadUrl}?size=${chunkSize}&nonce=${nonce}`
+      // Support both local format (?size=) and Cloudflare format (?bytes=)
+      const isCloudflare = downloadUrl.includes('cloudflare.com')
+      const paramName = isCloudflare ? 'bytes' : 'size'
+      const url = `${downloadUrl}?${paramName}=${chunkSize}&nonce=${nonce}`
 
       try {
         const chunkStart = performance.now()
@@ -142,13 +145,13 @@ export async function measureDownloadSpeed(
 
         totalBytes += data.byteLength
 
-        // Calculate current Mbps
-        const currentMbps = (data.byteLength * 8) / (chunkDuration * 1000)
+        // Calculate current Mbps (chunkDuration is in ms, so divide by 1000 to get seconds)
+        const currentMbps = (data.byteLength * 8) / ((chunkDuration / 1000) * 1000000)
         samples.push(currentMbps)
 
         // Report progress every 100ms
         if (chunkEnd - lastUpdate >= 100 && onProgress) {
-          const avgMbps = (totalBytes * 8) / ((chunkEnd - startTime) * 1000)
+          const avgMbps = (totalBytes * 8) / (((chunkEnd - startTime) / 1000) * 1000000)
           const timeElapsed = chunkEnd - startTime
           const estimatedTotal = Math.max(20000, duration)
           const timeRemaining = Math.max(0, estimatedTotal - timeElapsed)
@@ -174,18 +177,25 @@ export async function measureDownloadSpeed(
   await Promise.all(promises)
 
   const endTime = performance.now()
-  const totalDuration = (endTime - startTime) / 1000
+  const totalDuration = (endTime - startTime) / 1000 // Convert ms to seconds
 
-  // Filter out warm-up samples (first 2 seconds)
-  const filteredSamples = samples.slice(Math.floor(samples.length * 0.1))
+  // Calculate final Mbps based on total bytes transferred and total duration
+  // This gives the true aggregate throughput across all connections
+  // Formula: (bytes * 8 bits/byte) / seconds / 1,000,000 = Mbps
+  const totalMbps = (totalBytes * 8) / totalDuration / 1000000
 
-  // Calculate final Mbps (average of filtered samples)
-  const avgMbps = filteredSamples.reduce((a, b) => a + b, 0) / filteredSamples.length
+  console.log('Download test complete:', {
+    totalBytes: (totalBytes / 1024 / 1024).toFixed(2) + ' MB',
+    totalDuration: totalDuration.toFixed(2) + ' seconds',
+    totalMbps: totalMbps.toFixed(2) + ' Mbps',
+    samples: samples.length
+  })
 
   return {
-    mbps: parseFloat(avgMbps.toFixed(2)),
-    samples: filteredSamples,
+    mbps: parseFloat(totalMbps.toFixed(2)),
+    samples: samples,
     duration: totalDuration,
+    bytesTransferred: totalBytes,
   }
 }
 
@@ -239,19 +249,30 @@ export async function measureUploadSpeed(
           signal: abortSignal,
         })
 
-        const result = await response.json()
+        // Handle both Cloudflare (returns text) and local server (returns JSON)
+        const isCloudflare = uploadUrl.includes('cloudflare.com')
+        let bytesReceived = chunkSize
+        
+        if (!isCloudflare) {
+          const result = await response.json()
+          bytesReceived = result.bytesReceived
+        } else {
+          // Cloudflare doesn't return JSON, just consume the response
+          await response.text()
+        }
+        
         const chunkEnd = performance.now()
         const chunkDuration = chunkEnd - chunkStart
 
-        totalBytes += result.bytesReceived
+        totalBytes += bytesReceived
 
-        // Calculate current Mbps
-        const currentMbps = (result.bytesReceived * 8) / (chunkDuration * 1000)
+        // Calculate current Mbps (chunkDuration is in ms, so divide by 1000 to get seconds)
+        const currentMbps = (bytesReceived * 8) / ((chunkDuration / 1000) * 1000000)
         samples.push(currentMbps)
 
         // Report progress every 100ms
         if (chunkEnd - lastUpdate >= 100 && onProgress) {
-          const avgMbps = (totalBytes * 8) / ((chunkEnd - startTime) * 1000)
+          const avgMbps = (totalBytes * 8) / (((chunkEnd - startTime) / 1000) * 1000000)
           const timeElapsed = (chunkEnd - startTime) / 1000
           const timeRemaining = Math.max(0, duration - timeElapsed)
           
@@ -276,41 +297,50 @@ export async function measureUploadSpeed(
   await Promise.all(promises)
 
   const endTime = performance.now()
-  const totalDuration = (endTime - startTime) / 1000
+  const totalDuration = (endTime - startTime) / 1000 // Convert ms to seconds
 
-  // Filter out warm-up samples (first 2 seconds)
-  const filteredSamples = samples.slice(Math.floor(samples.length * 0.1))
+  // Calculate final Mbps based on total bytes transferred and total duration
+  // This gives the true aggregate throughput across all connections
+  // Formula: (bytes * 8 bits/byte) / seconds / 1,000,000 = Mbps
+  const totalMbps = (totalBytes * 8) / totalDuration / 1000000
 
-  // Calculate final Mbps (average of filtered samples)
-  const avgMbps = filteredSamples.reduce((a, b) => a + b, 0) / filteredSamples.length
+  console.log('Upload test complete:', {
+    totalBytes: (totalBytes / 1024 / 1024).toFixed(2) + ' MB',
+    totalDuration: totalDuration.toFixed(2) + ' seconds',
+    totalMbps: totalMbps.toFixed(2) + ' Mbps',
+    samples: samples.length
+  })
 
   return {
-    mbps: parseFloat(avgMbps.toFixed(2)),
-    samples: filteredSamples,
+    mbps: parseFloat(totalMbps.toFixed(2)),
+    samples: samples,
     duration: totalDuration,
+    bytesTransferred: totalBytes,
   }
 }
 
 // Determine optimal connection count based on speed
 export function getOptimalConnections(estimatedMbps: number): number {
-  if (estimatedMbps < 10) return 2
-  if (estimatedMbps < 50) return 4
-  if (estimatedMbps < 200) return 6
-  return 8
+  if (estimatedMbps < 10) return 4
+  if (estimatedMbps < 50) return 6
+  if (estimatedMbps < 100) return 10
+  if (estimatedMbps < 250) return 14
+  return 18 // For high speed connections
 }
 
 // Get chunk size based on connection speed
+// Use moderate chunk sizes to maintain continuous data flow
 export function getChunkSize(estimatedMbps: number, type: 'download' | 'upload'): number {
   if (type === 'download') {
-    if (estimatedMbps < 10) return 512 * 1024 // 512KB
-    if (estimatedMbps < 50) return 1024 * 1024 // 1MB
-    if (estimatedMbps < 200) return 5 * 1024 * 1024 // 5MB
-    return 10 * 1024 * 1024 // 10MB
+    if (estimatedMbps < 10) return 1 * 1024 * 1024 // 1MB
+    if (estimatedMbps < 50) return 2 * 1024 * 1024 // 2MB
+    if (estimatedMbps < 100) return 3 * 1024 * 1024 // 3MB
+    return 5 * 1024 * 1024 // 5MB - keeps data flowing without long gaps
   } else {
-    // Upload chunks are smaller
-    if (estimatedMbps < 10) return 256 * 1024 // 256KB
-    if (estimatedMbps < 50) return 512 * 1024 // 512KB
-    if (estimatedMbps < 200) return 2 * 1024 * 1024 // 2MB
-    return 5 * 1024 * 1024 // 5MB
+    // Upload chunks should be smaller than download
+    if (estimatedMbps < 10) return 512 * 1024 // 512KB
+    if (estimatedMbps < 50) return 1 * 1024 * 1024 // 1MB
+    if (estimatedMbps < 100) return 1.5 * 1024 * 1024 // 1.5MB
+    return 2 * 1024 * 1024 // 2MB
   }
 }
