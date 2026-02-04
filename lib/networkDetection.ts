@@ -9,6 +9,15 @@ export interface NetworkInfo {
 }
 
 export function getNetworkInfo(): NetworkInfo {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return {
+      type: 'unknown',
+      effectiveType: 'unknown',
+      saveData: false,
+    }
+  }
+
   // Check if Network Information API is available
   const connection = (navigator as any).connection || 
                     (navigator as any).mozConnection || 

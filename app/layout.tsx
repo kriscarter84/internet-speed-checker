@@ -11,14 +11,11 @@ export const metadata: Metadata = {
     maximumScale: 5,
     userScalable: true,
   },
-  themeColor: '#4A90E2',
+  themeColor: '#06b6d4',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Speed Test',
-  },
-  icons: {
-    icon: '/icon.svg',
   },
 }
 

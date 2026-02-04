@@ -74,41 +74,52 @@ export default function SpeedTest() {
 
   // Detect network type on mount
   useEffect(() => {
-    const networkInfo = getNetworkInfo()
-    setState(prev => ({ ...prev, networkInfo }))
+    try {
+      const networkInfo = getNetworkInfo()
+      setState(prev => ({ ...prev, networkInfo }))
+      
+      // Fetch test history
+      fetchHistory()
+      
+      // Fetch IP and ISP info
+      fetchIPInfo()
+    } catch (error) {
+      console.error('[Client] Error initializing:', error)
+      // Continue anyway - these are non-critical
+    }
     
-    // Fetch test history
-    fetchHistory()
-    
-    // Fetch IP and ISP info
-    fetchIPInfo()
-    
-    // Add keyboard shortcuts
+    // Add keyboard shortcuts (with safety check)
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Space or Enter to start test (only when idle)
-      if ((e.code === 'Space' || e.code === 'Enter') && state.phase === 'idle') {
-        e.preventDefault()
-        startTest()
-      }
-      // Escape to cancel test
-      if (e.code === 'Escape' && (state.phase === 'selecting' || state.phase === 'ping' || state.phase === 'download' || state.phase === 'upload')) {
-        e.preventDefault()
-        cancelTest()
-      }
-      // ? to show keyboard shortcuts
-      if (e.key === '?' && state.phase === 'idle') {
-        e.preventDefault()
-        setShowKeyboardHelp(true)
-      }
-      // Escape to close help modal
-      if (e.key === 'Escape' && showKeyboardHelp) {
-        e.preventDefault()
-        setShowKeyboardHelp(false)
+      try {
+        // Space or Enter to start test (only when idle)
+        if ((e.code === 'Space' || e.code === 'Enter') && state.phase === 'idle') {
+          e.preventDefault()
+          startTest()
+        }
+        // Escape to cancel test
+        if (e.code === 'Escape' && (state.phase === 'selecting' || state.phase === 'ping' || state.phase === 'download' || state.phase === 'upload')) {
+          e.preventDefault()
+          cancelTest()
+        }
+        // ? to show keyboard shortcuts
+        if (e.key === '?' && state.phase === 'idle') {
+          e.preventDefault()
+          setShowKeyboardHelp(true)
+        }
+        // Escape to close help modal
+        if (e.key === 'Escape' && showKeyboardHelp) {
+          e.preventDefault()
+          setShowKeyboardHelp(false)
+        }
+      } catch (error) {
+        console.error('[Client] Keyboard handler error:', error)
       }
     }
     
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', handleKeyPress)
+      return () => window.removeEventListener('keydown', handleKeyPress)
+    }
   }, [state.phase, showKeyboardHelp])
 
   const fetchIPInfo = async () => {
@@ -471,17 +482,23 @@ ${state.networkInfo ? `🔌 Connection: ${getNetworkTypeDisplay(state.networkInf
 Tested at ${new Date().toLocaleString()}`
 
     try {
-      await navigator.clipboard.writeText(resultsText)
-      
-      // Show a brief toast notification
-      const toast = document.createElement('div')
-      toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 font-bold'
-      toast.textContent = '✓ Results copied to clipboard!'
-      document.body.appendChild(toast)
-      
-      setTimeout(() => {
-        toast.remove()
-      }, 3000)
+      // Check if clipboard API is available
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(resultsText)
+        
+        // Show a brief toast notification
+        const toast = document.createElement('div')
+        toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 font-bold'
+        toast.textContent = '✓ Results copied to clipboard!'
+        document.body.appendChild(toast)
+        
+        setTimeout(() => {
+          toast.remove()
+        }, 3000)
+      } else {
+        // Fallback for browsers without clipboard API
+        throw new Error('Clipboard API not available')
+      }
     } catch (error) {
       console.error('Failed to copy results:', error)
       // Fallback: Show results in an alert
