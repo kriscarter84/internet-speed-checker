@@ -35,15 +35,23 @@ export async function GET(request: NextRequest) {
     if (isLocalhost) {
       try {
         // Try ipify first (simple and fast)
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 3000)
+        
         const ipResponse = await fetch('https://api.ipify.org?format=json', {
-          signal: AbortSignal.timeout(3000),
+          signal: controller.signal,
         })
+        clearTimeout(timeout)
+        
         if (ipResponse.ok) {
           const ipData = await ipResponse.json()
-          clientIp = ipData.ip
+          // Validate IP format
+          if (typeof ipData.ip === 'string' && /^[\d.:a-fA-F]+$/.test(ipData.ip)) {
+            clientIp = ipData.ip
+          }
         }
       } catch (error) {
-        console.error('Failed to fetch public IP:', error)
+        console.error('[IP Info] Failed to fetch public IP:', error instanceof Error ? error.message : 'Unknown error')
       }
     }
     
@@ -52,9 +60,18 @@ export async function GET(request: NextRequest) {
     
     if (clientIp && clientIp !== 'unknown' && !clientIp.startsWith('127.') && !clientIp.startsWith('192.168.') && !clientIp.startsWith('10.') && clientIp !== '::1') {
       try {
+        // Validate IP format to prevent SSRF attacks
+        if (!/^[\d.:a-fA-F]+$/.test(clientIp)) {
+          throw new Error('Invalid IP format')
+        }
+        
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 3000)
+        
         const response = await fetch(`http://ip-api.com/json/${clientIp}?fields=status,country,countryCode,region,regionName,city,isp,org,as,query`, {
-          signal: AbortSignal.timeout(3000),
+          signal: controller.signal,
         })
+        clearTimeout(timeout)
         
         if (response.ok) {
           const data = await response.json()
@@ -72,7 +89,7 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch ISP info:', error)
+        console.error('[IP Info] Failed to fetch ISP info:', error instanceof Error ? error.message : 'Unknown error')
       }
     }
     
@@ -92,6 +109,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(ispInfo)
   } catch (error) {
+    console.error('[IP Info] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json(
       { error: 'Failed to get IP info' },
       { status: 500 }

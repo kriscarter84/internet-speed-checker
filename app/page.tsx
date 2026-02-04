@@ -100,21 +100,52 @@ export default function SpeedTest() {
 
   const fetchIPInfo = async () => {
     try {
-      const response = await fetch('/api/ip-info')
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+      
+      const response = await fetch('/api/ip-info', {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
-      setIpInfo(data)
+      // Validate response data to prevent XSS
+      if (data && typeof data === 'object') {
+        setIpInfo(data)
+      }
     } catch (error) {
-      console.error('Failed to fetch IP info:', error)
+      console.error('[Client] Failed to fetch IP info:', error instanceof Error ? error.message : 'Unknown error')
+      // Don't set error state, IP info is not critical
     }
   }
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch('/api/results?limit=5')
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      
+      const response = await fetch('/api/results?limit=5', {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
-      setHistory(data.results || [])
+      // Validate response structure
+      if (data && Array.isArray(data.results)) {
+        setHistory(data.results)
+      }
     } catch (error) {
-      console.error('Failed to fetch history:', error)
+      console.error('[Client] Failed to fetch history:', error instanceof Error ? error.message : 'Unknown error')
+      // Set empty array on error so UI doesn't break
+      setHistory([])
     }
   }
 
@@ -209,20 +240,31 @@ export default function SpeedTest() {
         progress: 95,
       }))
 
-      // Save results
-      await fetch('/api/results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serverId: bestServer.id,
-          ping: latencyResult.ping,
-          jitter: latencyResult.jitter,
-          downloadMbps: downloadResult.mbps,
-          uploadMbps: uploadResult.mbps,
-          userAgent: navigator.userAgent,
-          connectionType: (navigator as any).connection?.effectiveType || 'unknown',
-        }),
-      })
+      // Save results (don't fail the test if save fails)
+      try {
+        const saveResponse = await fetch('/api/results', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            serverId: bestServer.id,
+            ping: Math.round(latencyResult.ping * 100) / 100, // Round to 2 decimal places
+            jitter: Math.round(latencyResult.jitter * 100) / 100,
+            downloadMbps: Math.round(downloadResult.mbps * 100) / 100,
+            uploadMbps: Math.round(uploadResult.mbps * 100) / 100,
+            userAgent: navigator.userAgent.substring(0, 500), // Limit length
+            connectionType: (navigator as any).connection?.effectiveType || 'unknown',
+          }),
+        })
+        
+        if (!saveResponse.ok) {
+          console.warn('[Client] Failed to save test results:', saveResponse.status)
+        }
+      } catch (saveError) {
+        // Log but don't fail the test
+        console.error('[Client] Error saving test results:', saveError instanceof Error ? saveError.message : 'Unknown error')
+      }
 
       // Calculate quality rating
       const qualityRating = calculateConnectionQuality(
@@ -245,18 +287,25 @@ export default function SpeedTest() {
       // Refresh history after test
       fetchHistory()
     } catch (error: any) {
+      // Log error for debugging (won't expose to users)
+      console.error('[SpeedTest] Test error:', error)
+      
       if (error.name === 'AbortError') {
         setState(prev => ({ ...prev, phase: 'idle', progress: 0 }))
       } else {
-        // Better error messages
+        // Better error messages - don't expose technical details
         let errorMessage = 'Test failed. Please try again.'
         
-        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('Failed to fetch')) {
           errorMessage = 'Network connection error. Please check your internet and try again.'
-        } else if (error.message?.includes('timeout')) {
+        } else if (error.message?.includes('timeout') || error.message?.includes('aborted')) {
           errorMessage = 'Test timed out. Your connection may be unstable.'
-        } else if (error.message?.includes('server')) {
+        } else if (error.message?.includes('server') || error.status >= 500) {
           errorMessage = 'Server error. Please try again later.'
+        } else if (error.status === 429) {
+          errorMessage = 'Too many requests. Please wait a moment and try again.'
+        } else if (error.status === 413) {
+          errorMessage = 'Request too large. Please try again.'
         }
         
         setState(prev => ({
@@ -265,6 +314,8 @@ export default function SpeedTest() {
           error: errorMessage,
         }))
       }
+    } finally {
+      abortControllerRef.current = null
     }
   }
 
@@ -423,9 +474,14 @@ Tested at ${new Date().toLocaleString()}`
     if (!confirm('Are you sure you want to clear all test history?')) return
 
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      
       const response = await fetch('/api/results', {
         method: 'DELETE',
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         setHistory([])
@@ -439,9 +495,31 @@ Tested at ${new Date().toLocaleString()}`
         setTimeout(() => {
           toast.remove()
         }, 3000)
+      } else if (response.status === 429) {
+        // Show rate limit error
+        const toast = document.createElement('div')
+        toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 font-bold'
+        toast.textContent = '⚠ Too many requests. Please wait.'
+        document.body.appendChild(toast)
+        
+        setTimeout(() => {
+          toast.remove()
+        }, 3000)
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
     } catch (error) {
-      console.error('Failed to clear history:', error)
+      console.error('[Client] Failed to clear history:', error instanceof Error ? error.message : 'Unknown error')
+      
+      // Show error toast
+      const toast = document.createElement('div')
+      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 font-bold'
+      toast.textContent = '✗ Failed to clear history'
+      document.body.appendChild(toast)
+      
+      setTimeout(() => {
+        toast.remove()
+      }, 3000)
     }
   }
 

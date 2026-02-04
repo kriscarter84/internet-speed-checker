@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       mbps: parseFloat(mbps.toFixed(2)),
     })
   } catch (error) {
+    console.error('[Upload API] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json(
       { error: 'Failed to process upload' },
       { status: 500 }

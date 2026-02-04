@@ -17,14 +17,15 @@ export async function GET(request: NextRequest) {
   const sizeParam = searchParams.get('size') || '1048576'
   const nonce = searchParams.get('nonce') || Date.now().toString()
   
-  // Validate input is a number
-  const size = parseInt(sizeParam, 10)
-  if (isNaN(size) || size < 0) {
-    return NextResponse.json(
-      { error: 'Invalid size parameter' },
-      { status: 400 }
-    )
-  }
+  try {
+    // Validate input is a number
+    const size = parseInt(sizeParam, 10)
+    if (isNaN(size) || size < 0) {
+      return NextResponse.json(
+        { error: 'Invalid size parameter' },
+        { status: 400 }
+      )
+    }
 
   // Limit size to prevent abuse (max 50MB per request)
   const limitedSize = Math.min(size, 50 * 1024 * 1024)
@@ -34,15 +35,22 @@ export async function GET(request: NextRequest) {
     ? cachedBuffer.subarray(0, limitedSize)
     : cachedBuffer
 
-  return new NextResponse(buffer, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Length': limitedSize.toString(),
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-      'X-Nonce': nonce,
-    },
-  })
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': limitedSize.toString(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'X-Nonce': nonce,
+      },
+    })
+  } catch (error) {
+    console.error('[Download API] Error:', error instanceof Error ? error.message : 'Unknown error')
+    return NextResponse.json(
+      { error: 'Failed to generate download data' },
+      { status: 500 }
+    )
+  }
 }
