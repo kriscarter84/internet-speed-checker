@@ -283,8 +283,8 @@ export default function SpeedTest() {
             jitter: Math.round(latencyResult.jitter * 100) / 100,
             downloadMbps: Math.round(downloadResult.mbps * 100) / 100,
             uploadMbps: Math.round(uploadResult.mbps * 100) / 100,
-            userAgent: navigator.userAgent.substring(0, 500), // Limit length
-            connectionType: (navigator as any).connection?.effectiveType || 'unknown',
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.substring(0, 500) : 'unknown', // Limit length
+            connectionType: typeof navigator !== 'undefined' ? (navigator as any).connection?.effectiveType || 'unknown' : 'unknown',
           }),
         })
         
@@ -376,9 +376,11 @@ export default function SpeedTest() {
 
   const downloadResultsImage = async () => {
     if (!state.qualityRating) return
+    if (typeof document === 'undefined') return
 
-    // Create a canvas with the results
-    const canvas = document.createElement('canvas')
+    try {
+      // Create a canvas with the results
+      const canvas = document.createElement('canvas')
     canvas.width = 1200
     canvas.height = 800
     const ctx = canvas.getContext('2d')
@@ -448,6 +450,9 @@ export default function SpeedTest() {
       a.click()
       URL.revokeObjectURL(url)
     })
+    } catch (error) {
+      console.error('[Client] Failed to download image:', error)
+    }
   }
 
   const getGradeColor = (grade: string) => {
@@ -483,18 +488,20 @@ Tested at ${new Date().toLocaleString()}`
 
     try {
       // Check if clipboard API is available
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(resultsText)
         
         // Show a brief toast notification
-        const toast = document.createElement('div')
-        toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 font-bold'
-        toast.textContent = '✓ Results copied to clipboard!'
-        document.body.appendChild(toast)
+        if (typeof document !== 'undefined') {
+          const toast = document.createElement('div')
+          toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 font-bold'
+          toast.textContent = '✓ Results copied to clipboard!'
+          document.body.appendChild(toast)
         
-        setTimeout(() => {
-          toast.remove()
-        }, 3000)
+          setTimeout(() => {
+            toast.remove()
+          }, 3000)
+        }
       } else {
         // Fallback for browsers without clipboard API
         throw new Error('Clipboard API not available')
