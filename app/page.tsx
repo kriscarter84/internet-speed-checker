@@ -51,6 +51,9 @@ interface IPInfo {
 }
 
 export default function SpeedTest() {
+  // Debug logging for mobile
+  console.log('[SpeedTest] Component mounting...')
+  
   const [state, setState] = useState<TestState>({
     phase: 'idle',
     server: null,
@@ -87,15 +90,17 @@ export default function SpeedTest() {
       console.error('[Client] Error initializing:', error)
       // Continue anyway - these are non-critical
     }
-    
-    // Add keyboard shortcuts (with safety check) - only on desktop
+  }, []) // Empty dependency array - run only once on mount
+
+  // Separate useEffect for keyboard shortcuts (desktop only)
+  useEffect(() => {
+    // Skip keyboard shortcuts on mobile
+    if (typeof window === 'undefined' || window.innerWidth < 768) {
+      return
+    }
+
     const handleKeyPress = (e: KeyboardEvent) => {
       try {
-        // Skip on mobile devices
-        if (typeof window !== 'undefined' && window.innerWidth < 768) {
-          return
-        }
-        
         // Space or Enter to start test (only when idle)
         if ((e.code === 'Space' || e.code === 'Enter') && state.phase === 'idle') {
           e.preventDefault()
@@ -120,12 +125,9 @@ export default function SpeedTest() {
         console.error('[Client] Keyboard handler error:', error)
       }
     }
-    
-    // Only add keyboard listeners on desktop
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      window.addEventListener('keydown', handleKeyPress)
-      return () => window.removeEventListener('keydown', handleKeyPress)
-    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
   }, [state.phase, showKeyboardHelp])
 
   const fetchIPInfo = async () => {
@@ -572,6 +574,8 @@ Tested at ${new Date().toLocaleString()}`
     }
   }
 
+  console.log('[SpeedTest] About to render...')
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900">
       <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12">
