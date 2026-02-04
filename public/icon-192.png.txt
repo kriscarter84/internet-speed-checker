@@ -1,0 +1,6 @@
+This is a placeholder. Please save your speedometer icon image as:
+- icon-192.png (192x192 pixels)
+- icon-512.png (512x512 pixels)  
+- icon-180.png (180x180 pixels for Apple)
+
+You can use an online tool to convert the SVG to PNG at these sizes.
